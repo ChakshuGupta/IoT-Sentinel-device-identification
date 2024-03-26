@@ -4,12 +4,14 @@
 
 import fnmatch
 import numpy as np
+import pickle
 import features_scapy as fe
 from sklearn.model_selection import StratifiedKFold
 from random import randint
 from scapy.all import *
 from random import sample
 from sklearn.ensemble import RandomForestClassifier
+import matplotlib as plt
 
 concat_feature = [] # Holds the list of feature values
 feature_set = []
@@ -282,7 +284,7 @@ def plot(device_labels, accuracy, y_lbl, title):
 
 if __name__ == "__main__":
     # Folder containing the network trace files
-    pcap_folder = "F:\\MSC\\Master Thesis\\Network traces\\captures_IoT_Sentinel_all\\captures_IoT-Sentinel"
+    pcap_folder = "./captures_IoT_Sentinel"
 
     device_labels = ['Aria', 'HomeMaticPlug', 'Withings', 'MAXGateway', 'HueBridge', 'HueSwitch', 'EdnetGateway',
                      'EdnetCam', 'EdimaxCam', 'Lightify', 'WeMoInsightSwitch', 'WeMoLink', 'WeMoSwitch',
@@ -296,7 +298,7 @@ if __name__ == "__main__":
         dataset_y = pickle.load(open("Sentinel_dataset_y.pickle", "rb"))
         vectors_edit_distance = pickle.load(open("Sentinel_features_DL.pickle", "rb"))
         print("Pickling successful IoTSentinel_random_forest......")
-    except (OSError, IOError) as e:
+    except (OSError, FileNotFoundError) as e:
         # Extract the features from packet traces and generate a new dataset and pickle it after that
         dataset_X, dataset_y = load_data(pcap_folder)
         pickle.dump(dataset_X, open("Sentinel_dataset_X.pickle", "wb"))
@@ -312,12 +314,14 @@ if __name__ == "__main__":
     f_importance = {}
     iterationwise_fimportance = {}
     Number_of_features = 23
+    print("Size of X: ", len(dataset_X))
+    print("Size of Y: ", len(dataset_y))
 
     for j in range(num_of_iter):
         print("Running the iteration number: ", j)
         classifier_list = {}  # stores the computed classifiers
 
-        skf = StratifiedKFold(n_splits=10, shuffle=True)
+        skf = StratifiedKFold(n_splits=5, shuffle=True, random_state=1234)
         for train_index, test_index in skf.split(dataset_X, dataset_y):
             X_train, X_test = dataset_X[train_index], dataset_X[test_index]
             y_train, y_test = dataset_y[train_index], dataset_y[test_index]
@@ -389,7 +393,7 @@ if __name__ == "__main__":
                             edit_distance = 0
 
                             temp_comp = X_train[y_train == prediction]  # filter all fps for a particular device
-                            out_list = sample(list(temp_comp), 5)  # select all data samples from temp_X for a device
+                            out_list = sample(list(temp_comp), min(5, len(temp_comp)))  # select all data samples from temp_X for a device
                             for fp in out_list:
                                 edit_distance += damerau_levenshtein(str(list(X_unknown[i])), str(list(fp)))
                             ED_results[prediction] = edit_distance
