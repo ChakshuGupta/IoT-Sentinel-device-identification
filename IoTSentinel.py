@@ -303,10 +303,8 @@ def plot(device_labels, accuracy, y_lbl, title):
     plt.show()
 
 
-def main(pcap_folder, pickle_folder):
-    # Load the data from the pcap or the pickle files
-    dataset_X, dataset_y, vectors_edit_distance = load_data(pcap_folder, pickle_folder)
-
+def main(dataset_X, dataset_y, vectors_edit_distance):
+    """ Main function """
     device_labels = set(dataset_y)
 
     num_of_iter = 10            # number of iterations the prediction happens
@@ -463,6 +461,8 @@ if __name__ == "__main__":
     
     pcap_folder = sys.argv[1]
     pickle_folder = sys.argv[2]
+    # Load the data from the pcap or the pickle files
+    dataset_X, dataset_y, vectors_edit_distance = load_data(pcap_folder, pickle_folder)
 
     # Call the main function
-    main(pcap_folder, pickle_folder)
+    main(dataset_X, dataset_y, vectors_edit_distance)
