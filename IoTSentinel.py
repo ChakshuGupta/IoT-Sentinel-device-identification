@@ -12,6 +12,8 @@ from scapy.all import *
 from random import sample
 from sklearn.ensemble import RandomForestClassifier
 import matplotlib as plt
+import os
+import sys
 
 concat_feature = [] # Holds the list of feature values
 feature_set = []
@@ -28,7 +30,26 @@ count = 0
 source_mac_add = "" #source mac address of the device
 prev_class = ""     # name of the previous device type
 
-vectors_edit_distance = {}  # stores the vectors for edit distance calculation
+
+
+
+def load_data(pcap_folder, pickle_folder):
+    """ Loading the data from the folder"""
+    vectors_edit_distance = {}  # stores the vectors for edit distance calculation
+    try:
+        # Loading the pickeld data. PLEASE RELOAD data after adding a new feature
+        dataset_X = pickle.load(open(os.path.join(pickle_folder,"Sentinel_dataset_X.pickle"), "rb"))
+        dataset_y = pickle.load(open(os.path.join(pickle_folder,"Sentinel_dataset_y.pickle"), "rb"))
+        vectors_edit_distance = pickle.load(open(os.path.join(pickle_folder,"Sentinel_features_DL.pickle"), "rb"))
+        print("Pickling successful IoTSentinel_random_forest......")
+    except (OSError, FileNotFoundError) as e:
+        # Extract the features from packet traces and generate a new dataset and pickle it after that
+        dataset_X, dataset_y = load_data_generators(pcap_folder, vectors_edit_distance)
+        pickle.dump(dataset_X, open(os.path.join(pickle_folder,"Sentinel_dataset_X.pickle"), "wb"))
+        pickle.dump(dataset_y, open(os.path.join(pickle_folder,"Sentinel_dataset_y.pickle"), "wb"))
+        pickle.dump(vectors_edit_distance, open(os.path.join(pickle_folder,"Sentinel_features_DL.pickle"), "wb"))
+    
+    return dataset_X, dataset_y, vectors_edit_distance
 
 
 def pcap_class_generator(folder):
@@ -135,7 +156,7 @@ def feature_class_generator(packet_class_gen):
         yield fvector, class_
 
 
-def dataset(feature_class_gen):
+def dataset(feature_class_gen, vectors_edit_distance):
     """ Function to generate the complete dataset with 176 dimensional feature vectors """
     global feature_set
     global prev_class
@@ -215,12 +236,12 @@ def dataset(feature_class_gen):
     return zip(*g())
 
 
-def load_data(pcap_folder_name):
+def load_data_generators(pcap_folder_name, vectors_edit_distance):
     """ Loading the data from the generator functions """
     pcap_gen = pcap_class_generator(pcap_folder_name)
     packet_gen = packet_class_generator(pcap_gen)
     feature_gen = feature_class_generator(packet_gen)
-    dataset_X, dataset_y = dataset(feature_gen)
+    dataset_X, dataset_y = dataset(feature_gen, vectors_edit_distance)
     dataset_X = np.array(dataset_X)
     dataset_y = np.array(dataset_y)
     return dataset_X, dataset_y
@@ -282,28 +303,11 @@ def plot(device_labels, accuracy, y_lbl, title):
     plt.show()
 
 
-if __name__ == "__main__":
-    # Folder containing the network trace files
-    pcap_folder = "./captures_IoT_Sentinel"
+def main(pcap_folder, pickle_folder):
+    # Load the data from the pcap or the pickle files
+    dataset_X, dataset_y, vectors_edit_distance = load_data(pcap_folder, pickle_folder)
 
-    device_labels = ['Aria', 'HomeMaticPlug', 'Withings', 'MAXGateway', 'HueBridge', 'HueSwitch', 'EdnetGateway',
-                     'EdnetCam', 'EdimaxCam', 'Lightify', 'WeMoInsightSwitch', 'WeMoLink', 'WeMoSwitch',
-                     'D-LinkHomeHub', 'D-LinkDoorSensor', 'D-LinkDayCam', 'D-LinkCam', 'D-LinkSwitch',
-                     'D-LinkWaterSensor', 'D-LinkSiren', 'D-LinkSensor', 'TP-LinkPlugHS110', 'TP-LinkPlugHS100',
-                     'EdimaxPlug1101W', 'EdimaxPlug2101W', 'SmarterCoffee', 'iKettle2']
-
-    try:
-        # Loading the pickeld data. PLEASE RELOAD data after adding a new feature
-        dataset_X = pickle.load(open("Sentinel_dataset_X.pickle", "rb"))
-        dataset_y = pickle.load(open("Sentinel_dataset_y.pickle", "rb"))
-        vectors_edit_distance = pickle.load(open("Sentinel_features_DL.pickle", "rb"))
-        print("Pickling successful IoTSentinel_random_forest......")
-    except (OSError, FileNotFoundError) as e:
-        # Extract the features from packet traces and generate a new dataset and pickle it after that
-        dataset_X, dataset_y = load_data(pcap_folder)
-        pickle.dump(dataset_X, open("Sentinel_dataset_X.pickle", "wb"))
-        pickle.dump(dataset_y, open("Sentinel_dataset_y.pickle", "wb"))
-        pickle.dump(vectors_edit_distance, open("Sentinel_features_DL.pickle", "wb"))
+    device_labels = set(dataset_y)
 
     num_of_iter = 10            # number of iterations the prediction happens
     same_to_other_ratio = 10    # Dataset split ratio
@@ -449,3 +453,16 @@ if __name__ == "__main__":
     y_lbl = 'Accuracy'
     title = 'Random Forest Prediction with Edit Distance (IoT Sentinel)'
     plot(device_labels, accuracy, y_lbl, title)
+
+
+if __name__ == "__main__":
+    # Folder containing the network trace files as the system argument
+    if len(sys.argv) != 3:
+        print("Usage: python3 IoTSentinel.py <pcap_folder> <pickle_folder>")
+        exit(0)
+    
+    pcap_folder = sys.argv[1]
+    pickle_folder = sys.argv[2]
+
+    # Call the main function
+    main(pcap_folder, pickle_folder)
