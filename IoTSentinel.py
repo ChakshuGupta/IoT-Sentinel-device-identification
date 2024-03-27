@@ -375,7 +375,7 @@ def test_model(X_unknown, y_unknown, X_train, y_train, classifier_list, vectors_
     return dev_pred_accuracy
 
 
-def train_model(X_train, y_train, same_to_other_ratio, output_folder= './classification_models', read=True):
+def train_model(X_train, y_train, same_to_other_ratio, output_folder='./classification_models', read=True):
     """ Function to train the model """
     classifier_list = {}  # stores the computed classifiers
 
@@ -454,7 +454,7 @@ def main(dataset_X, dataset_y, vectors_edit_distance):
     """ Main function """
     device_labels = set(dataset_y)
 
-    num_of_iter = 10            # number of iterations the prediction happens
+    num_of_iter = 1           # number of iterations the prediction happens
     same_to_other_ratio = 10    # Dataset split ratio
     dev_pred_accuracy = {}      # records pred_vector accuracy
     test_dev_counter = {}
@@ -489,11 +489,12 @@ def main(dataset_X, dataset_y, vectors_edit_distance):
             test_model(X_unknown, y_unknown, X_train, y_train, classifier_list, vectors_edit_distance, dev_pred_accuracy)
 
     accuracy = generate_results(device_labels, dev_pred_accuracy, test_dev_counter)
+    print(accuracy)
 
     # Plotting the device prediction accuracy
-    y_lbl = 'Accuracy'
-    title = 'Random Forest Prediction with Edit Distance (IoT Sentinel)'
-    plot(device_labels, accuracy, y_lbl, title)
+    # y_lbl = 'Accuracy'
+    # title = 'Random Forest Prediction with Edit Distance (IoT Sentinel)'
+    # plot(device_labels, accuracy, y_lbl, title)
     return dev_pred_accuracy
 
 
@@ -510,3 +511,4 @@ if __name__ == "__main__":
 
     # Call the main function
     dev_pred_accuracy = main(dataset_X, dataset_y, vectors_edit_distance)
+    print(dev_pred_accuracy)
