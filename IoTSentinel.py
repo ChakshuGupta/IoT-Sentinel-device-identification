@@ -349,7 +349,7 @@ def test_model(X_unknown, y_unknown, X_train, y_train, classifier_list, vectors_
 
                 if len(final_preds) == 1:
                     all_predicted.append(final_preds[0][0])
-                    predicted_prob.append(final_preds[0][1])
+                    predicted_prob.append((y_unknown[i], final_preds[0][0], final_preds[0][1]))
                     if final_preds[0] == y_unknown[i]:
                         if y_unknown[i] not in dev_pred_accuracy:
                             dev_pred_accuracy[y_unknown[i]] = 1
@@ -358,7 +358,7 @@ def test_model(X_unknown, y_unknown, X_train, y_train, classifier_list, vectors_
                 else:
                     rand_val = randint(0, len(final_preds)-1)
                     all_predicted.append(final_preds[rand_val][0])
-                    predicted_prob.append(final_preds[rand_val][1])
+                    predicted_prob.append((y_unknown[i], final_preds[rand_val][0], final_preds[rand_val][1]))
                     if final_preds[rand_val][0] == y_unknown[i]:
                         if y_unknown[i] not in dev_pred_accuracy:
                             dev_pred_accuracy[y_unknown[i]] = 1
@@ -367,7 +367,7 @@ def test_model(X_unknown, y_unknown, X_train, y_train, classifier_list, vectors_
 
         elif len(classifiers_results) == 1:
             all_predicted.append(classifiers_results[0][0])
-            predicted_prob.append(classifiers_results[0][1])
+            predicted_prob.append((y_unknown[i], classifiers_results[0][0], classifiers_results[0][1]))
             if classifiers_results[0][0] == y_unknown[i]:
                 if y_unknown[i] not in dev_pred_accuracy:
                     dev_pred_accuracy[y_unknown[i]] = 1
@@ -376,6 +376,7 @@ def test_model(X_unknown, y_unknown, X_train, y_train, classifier_list, vectors_
 
         else:
             all_predicted.append("None")
+            predicted_prob.append((y_unknown[i], "None", 0))
     
     return all_tested, all_predicted, predicted_prob
 
@@ -406,13 +407,13 @@ def train_model(X_train, y_train, same_to_other_ratio, output_folder='./classifi
         data_Dy = []
 
         temp_X = X_train[y_train == device]                     # filter all fps for a particular device
-        out_list = sample(list(temp_X), device_fp_counter[device])  # select all data samples from temp_X for a device
+        out_list = sample(list(temp_X), min(device_fp_counter[device], len(temp_X)))  # select all data samples from temp_X for a device
         for fp in out_list:
             data_DX.append(fp)      # append device specific fingerprints to the training data set
             data_Dy.append(device)  # append device name to the respective training data set
 
         other_X = X_train[y_train != device]            # filter all fps NOT related to above device
-        out_list = sample(list(other_X), device_fp_counter[device] * same_to_other_ratio)  # select 10 times more data samples from other classes for a device
+        out_list = sample(list(other_X), min(device_fp_counter[device] * same_to_other_ratio, len(other_X)))  # select 10 times more data samples from other classes for a device
         for fp in out_list:
             data_DX.append(fp)          # append other fingerprints to the training data set
             data_Dy.append("Other")     # append device label as other to the respective training data set
