@@ -2,7 +2,6 @@
 # Source file is a .pcap file and scapy has been used to manipulate packets
 # Author: Nishadh Aluthge
 
-import fnmatch
 import numpy as np
 import pickle
 import features_scapy as fe
@@ -33,8 +32,7 @@ prev_class = ""     # name of the previous device type
 
 
 
-
-def load_data(pcap_folder, pickle_folder):
+def load_data(pcap_files, pickle_folder):
     """ Loading the data from the folder"""
     vectors_edit_distance = {}  # stores the vectors for edit distance calculation
     try:
@@ -45,7 +43,7 @@ def load_data(pcap_folder, pickle_folder):
         print("Pickling successful IoTSentinel_random_forest......")
     except (OSError, FileNotFoundError) as e:
         # Extract the features from packet traces and generate a new dataset and pickle it after that
-        dataset_X, dataset_y = load_data_generators(pcap_folder, vectors_edit_distance)
+        dataset_X, dataset_y = load_data_generators(pcap_files, vectors_edit_distance)
         pickle.dump(dataset_X, open(os.path.join(pickle_folder,"Sentinel_dataset_X.pickle"), "wb"))
         pickle.dump(dataset_y, open(os.path.join(pickle_folder,"Sentinel_dataset_y.pickle"), "wb"))
         pickle.dump(vectors_edit_distance, open(os.path.join(pickle_folder,"Sentinel_features_DL.pickle"), "wb"))
@@ -53,11 +51,22 @@ def load_data(pcap_folder, pickle_folder):
     return dataset_X, dataset_y, vectors_edit_distance
 
 
-def pcap_class_generator(folder):
+def load_data_generators(pcap_files, vectors_edit_distance):
+    """ Loading the data from the generator functions """
+    pcap_gen = pcap_class_generator(pcap_files)
+    packet_gen = packet_class_generator(pcap_gen)
+    feature_gen = feature_class_generator(packet_gen)
+    dataset_X, dataset_y = dataset(feature_gen, vectors_edit_distance)
+    dataset_X = np.array(dataset_X)
+    dataset_y = np.array(dataset_y)
+    return dataset_X, dataset_y
+
+
+def pcap_class_generator(pcap_files):
     """ Generator function to generate a list of .pcap files """
-    for path, dir_list, file_list in os.walk(folder):
-        for name in fnmatch.filter(file_list, "*.pcap"):
-            print(os.path.join(path, name), os.path.basename(os.path.normpath(path)))   # current file name
+    for device in pcap_files:
+        for path in pcap_files[device]:
+            print(path, device)   # current file name
             global dst_ip_counter
             global dest_ip_set
             global packet_index
@@ -70,7 +79,7 @@ def pcap_class_generator(folder):
             packet_index = 0
             concat_feature = []
             feature_set = []
-            yield os.path.join(path, name), os.path.basename(os.path.normpath(path))
+            yield path, device
 
 
 def packet_class_generator(pcap_class_gen):
@@ -80,6 +89,8 @@ def packet_class_generator(pcap_class_gen):
         global source_mac_add
         global count
         capture = rdpcap(pcapfile)      # Reading the network capture file usig scapy's rdpcap method
+        if len(capture) == 0:
+            continue
         count = 0
         capture_len = 0
         mac_address_list = {}
@@ -100,7 +111,7 @@ def packet_class_generator(pcap_class_gen):
                 src_mac_address_list[packet[0].src] = 1
             else:
                 src_mac_address_list[packet[0].src] += 1
-
+        
         highest = max(mac_address_list.values())
         for k, v in mac_address_list.items():
             if v == highest:
@@ -235,17 +246,6 @@ def dataset(feature_class_gen, vectors_edit_distance):
                 yield concat_feature, class_
 
     return zip(*g())
-
-
-def load_data_generators(pcap_folder_name, vectors_edit_distance):
-    """ Loading the data from the generator functions """
-    pcap_gen = pcap_class_generator(pcap_folder_name)
-    packet_gen = packet_class_generator(pcap_gen)
-    feature_gen = feature_class_generator(packet_gen)
-    dataset_X, dataset_y = dataset(feature_gen, vectors_edit_distance)
-    dataset_X = np.array(dataset_X)
-    dataset_y = np.array(dataset_y)
-    return dataset_X, dataset_y
 
 
 def damerau_levenshtein(seq1, seq2):
@@ -507,6 +507,32 @@ def main(dataset_X, dataset_y, vectors_edit_distance):
     return dev_pred_accuracy
 
 
+def get_pcap_files(pcap_folder):
+    """
+    Generate a dict like {device-name: [List of pcap files],...}
+    from the pcap folder
+    """
+    pcap_files = {}
+
+    device_list = next(os.walk(pcap_folder))[1]
+
+    for device in device_list:
+        device_dir = os.path.join(pcap_folder, device)
+        
+        for root, dirs, files in os.walk(device_dir):
+            # If the device name key does not exist in the dict, create an empty list
+            if device not in pcap_files:
+                pcap_files[device] = []
+            # Add all pcap files to the "file-list" key in the dataset config
+            for file in files:
+                if file.endswith(".pcap") or file.endswith(".pcapng"):
+                    pcap_files[device].append(os.path.join(root, file))
+        
+        pcap_files[device].sort()
+    
+    return pcap_files
+
+
 if __name__ == "__main__":
     # Folder containing the network trace files as the system argument
     if len(sys.argv) != 3:
@@ -515,8 +541,9 @@ if __name__ == "__main__":
     
     pcap_folder = sys.argv[1]
     pickle_folder = sys.argv[2]
+    pcap_files = get_pcap_files(pcap_folder)
     # Load the data from the pcap or the pickle files
-    dataset_X, dataset_y, vectors_edit_distance = load_data(pcap_folder, pickle_folder)
+    dataset_X, dataset_y, vectors_edit_distance = load_data(pcap_files, pickle_folder)
 
     # Call the main function
     dev_pred_accuracy = main(dataset_X, dataset_y, vectors_edit_distance)
