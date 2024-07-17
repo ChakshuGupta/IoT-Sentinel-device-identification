@@ -2,7 +2,7 @@
 # Condition: packets are extracted using scapy rdpcap method
 # Author: Nishadh Aluthge
 from _csv import Error
-
+from scapy.all import IPOption
 
 def get_length_feature(packet):    # Extracts Packet length
     try:
@@ -86,7 +86,7 @@ def get_r_alert_feature(packet):
     try:
         if int(packet["IP"].ihl) > 5:  # detecting Router Alert IP Option
             for op in packet["IP"].options:
-                if int(op.option) == 20:
+                if type(op) == IPOption and int(op.option) == 20:
                     return 1
                 else:
                     return 0
